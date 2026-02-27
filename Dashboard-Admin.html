@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Agent · Kinerja & Pembayaran</title>
+    <!-- Font Awesome 5 (icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- PapaParse untuk CSV export & sheet parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background-color: #E9EEED;  /* Background utama */
+            color: #1D2A2E;             /* text utama */
+            padding-bottom: 90px;        /* ruang bottom nav */
+        }
+        /* HEADER primary */
+        .header {
+            background-color: #1F4F59;   /* primary */
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            font-size: 1.4rem;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .header h1 {
+            font-size: 1.7rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        .week-badge {
+            background-color: #F3E4D3;    /* cream */
+            color: #1F4F59;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .week-badge i {
+            color: #F4A64D;               /* accent */
+        }
+        .sheet-link a {
+            color: white;
+            background: #2E6B73;           /* secondary */
+            padding: 8px 16px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .sheet-link a:hover {
+            background: #1f4f59;
+            border: 1px solid white;
+        }
+
+        /* control panel */
+        .control-panel {
+            background: white;
+            margin: 20px;
+            padding: 18px 22px;
+            border-radius: 28px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        .week-nav {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .week-nav select {
+            background: #F3E4D3;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #1D2A2E;
+            outline: none;
+            cursor: pointer;
+        }
+        .nav-btn {
+            background: #E9EEED;
+            border: none;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            color: #1F4F59;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .nav-btn:hover {
+            background: #F4A64D;
+            color: white;
+        }
+        .action-btns {
+            display: flex;
+            gap: 10px;
+        }
+        .action-btns button {
+            background: white;
+            border: 1.5px solid #2E6B73;
+            color: #2E6B73;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .action-btns button:hover {
+            background: #1F4F59;
+            border-color: #1F4F59;
+            color: white;
+        }
+
+        /* summary cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 0 20px 25px 20px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 28px;
+            padding: 22px 18px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.02);
+            transition: 0.2s;
+        }
+        .summary-card:hover {
+            background: #F3E4D3;   /* cream hover */
+        }
+        .summary-title {
+            color: #2E6B73;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .summary-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #1F4F59;
+        }
+        .summary-unit {
+            font-size: 1rem;
+            color: #2E6B73;
+            margin-left: 4px;
+        }
+
+        /* whatsapp & chart row */
+        .row-split {
+            display: flex;
+            gap: 20px;
+            margin: 0 20px 25px 20px;
+            flex-wrap: wrap;
+        }
+        .whatsapp-panel {
+            background: white;
+            border-radius: 28px;
+            padding: 20px;
+            flex: 1.2;
+            min-width: 340px;
+        }
+        .whatsapp-panel h3 {
+            color: #1F4F59;
+            margin-bottom: 16px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .agent-info-card {
+            background: #F3E4D3;
+            border-radius: 24px;
+            padding: 18px;
+            margin: 15px 0;
+        }
+        .info-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+        }
+        .wa-badge {
+            background: #25D366;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+        }
+        .wa-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .wa-actions button {
+            flex: 1;
+            background: #1F4F59;
+            border: none;
+            color: white;
+            padding: 12px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .wa-actions button:last-child {
+            background: #F4A64D;
+            color: #1D2A2E;
+        }
+        .chart-panel {
+            background: white;
+            border-radius: 28px;
+            padding: 20px;
+            flex: 2;
+            min-width: 300px;
+        }
+        canvas#weeklyChart {
+            max-height: 200px;
+            width: 100% !important;
+        }
+
+        /* agent cards (grid) */
+        .agent-section {
+            margin: 0 20px 30px 20px;
+        }
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 18px;
+            margin-top: 12px;
+        }
+        .agent-card {
+            background: white;
+            border-radius: 26px;
+            padding: 18px;
+            transition: 0.15s;
+            border: 1px solid #d6e0dd;
+            position: relative;
+        }
+        .agent-card:hover {
+            background: #F3E4D3;
+            transform: translateY(-3px);
+        }
+        .rank {
+            background: #F4A64D;
+            color: #1D2A2E;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            border: 3px solid white;
+        }
+        .agent-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin: 12px 0 6px 0;
+        }
+        .agent-fee {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #1F4F59;
+        }
+        .agent-order {
+            color: #2E6B73;
+            margin-bottom: 12px;
+        }
+        .payment-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+        .status-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 14px;
+        }
+        .lunas { background: #2ecc71; }
+        .belum { background: #e74c3c; }
+        .sebagian { background: #f1c40f; }
+        .ctwa-btn {
+            background: #25D366;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .ctwa-btn:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* payment section */
+        .payment-section {
+            background: white;
+            border-radius: 28px;
+            margin: 20px;
+            padding: 24px;
+        }
+        .payment-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+            background: #F3E4D3;
+            padding: 22px;
+            border-radius: 30px;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        .form-group label {
+            font-size: 0.8rem;
+            color: #2E6B73;
+            margin-bottom: 4px;
+        }
+        .form-group input, .form-group select {
+            background: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 40px;
+            font-size: 0.95rem;
+        }
+        .pay-btn {
+            background: #1F4F59;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .history-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+        .history-list li {
+            padding: 10px;
+            border-bottom: 1px solid #d0dbd9;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* bottom navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 8px 20px 12px;
+            border-radius: 35px 35px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+            z-index: 1000;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #2E6B73;
+            font-size: 0.75rem;
+            gap: 4px;
+        }
+        .nav-item i {
+            font-size: 1.4rem;
+        }
+        .fab {
+            background: #F4A64D;
+            color: #1D2A2E;
+            width: 60px;
+            height: 60px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-top: -30px;
+            border: 4px solid white;
+        }
+
+        /* utils */
+        .dropdown, .text-small { font-size: 0.9rem; }
+        i { color: #2E6B73; }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <button class="back-btn" onclick="window.location.href='index.html'"><i class="fas fa-arrow-left"></i></button>
+            <h1>Dashboard Agent</h1>
+        </div>
+        <div class="week-badge"><i class="fas fa-calendar-alt"></i> Minggu 12 · Data tersedia</div>
+        <div class="sheet-link">
+            <a href="https://docs.google.com/spreadsheets/d/1fDE1tj2mYanx9FA4deMPd-OLY6CdxWHZecMsdVtkc6c/edit?usp=sharing" target="_blank"><i class="fas fa-link"></i> Buka Google Sheets</a>
+        </div>
+    </div>
+
+    <!-- CONTROL PANEL -->
+    <div class="control-panel">
+        <div class="week-nav">
+            <select id="weekSelect"></select>
+            <button class="nav-btn" id="prevWeek"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-btn" id="nextWeek"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="action-btns">
+            <button id="refreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button id="exportBtn"><i class="fas fa-file-csv"></i> Export CSV</button>
+        </div>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-grid" id="summaryCards">
+        <div class="summary-card"><div class="summary-title"><i class="fas fa-users"></i> Total Agent</div><div class="summary-value" id="totalAgent">-</div></div>
+        <div class="summary-card"><div class="summary-title"><i class="fas fa-wallet"></i> Total Admin Fee</div><div class="summary-value" id="totalFee">-</div></div>
+        <div class="summary-card"><div class="summary-title"><i class="fas fa-shopping-bag"></i> Total Order</div><div class="summary-value" id="totalOrder">-</div></div>
+        <div class="summary-card"><div class="summary-title"><i class="fas fa-crown"></i> Top Agent</div><div class="summary-value" id="topAgent">-</div></div>
+    </div>
+
+    <!-- WHATSAPP + CHART ROW (tanpa kirim pengingat) -->
+    <div class="row-split">
+        <div class="whatsapp-panel">
+            <h3><i class="fab fa-whatsapp" style="color:#25D366;"></i> Info & Hubungi Agent</h3>
+            <select id="waAgentSelect" class="dropdown" style="width:100%; padding:12px; border-radius:40px; margin-bottom:10px;"></select>
+            <select id="waWeekSelect" class="dropdown" style="width:100%; padding:12px; border-radius:40px;"></select>
+            <div class="agent-info-card" id="waInfoCard">
+                <div class="info-line"><span>Nama</span> <strong id="waName">-</strong></div>
+                <div class="info-line"><span>No. WA</span> <span id="waPhone">-</span></div>
+                <div class="info-line"><span>Admin Fee</span> <span id="waFee">Rp0</span></div>
+                <div class="info-line"><span>Total Order</span> <span id="waOrder">0</span></div>
+                <div class="info-line"><span>Status</span> <span id="waStatus">-</span></div>
+                <div class="info-line"><span>Sisa bayar</span> <span id="waSisa">Rp0</span></div>
+            </div>
+            <div class="wa-actions">
+                <!-- Tombol Kirim Pengingat dihapus, hanya tersisa Hubungi -->
+                <button id="waContact" style="flex:1; background:#F4A64D; color:#1D2A2E;"><i class="fab fa-whatsapp"></i> Hubungi via WhatsApp</button>
+            </div>
+        </div>
+        <div class="chart-panel">
+            <h3><i class="fas fa-chart-line" style="color:#F4A64D;"></i> Tren 5 minggu terakhir</h3>
+            <canvas id="weeklyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- AGENT CARDS (grid) -->
+    <div class="agent-section">
+        <h3 style="margin-left:6px;"><i class="fas fa-id-card-alt"></i> Ranking Agent (Minggu ini)</h3>
+        <div class="agent-grid" id="agentGrid"></div>
+    </div>
+
+    <!-- PAYMENT SECTION -->
+    <div class="payment-section">
+        <h3><i class="fas fa-credit-card"></i> Input Pembayaran</h3>
+        <div class="payment-form">
+            <div class="form-group"><label>Agent</label><select id="payAgent"></select></div>
+            <div class="form-group"><label>Week</label><select id="payWeek"></select></div>
+            <div class="form-group"><label>Total Admin</label><input type="number" id="payTotalAdmin" readonly></div>
+            <div class="form-group"><label>Jumlah Dibayar</label><input type="number" id="payAmount" value="0"></div>
+            <button class="pay-btn" id="recordPayment"><i class="fas fa-save"></i> Simpan</button>
+        </div>
+        <div><strong>Status:</strong> <span id="paymentStatusText">-</span></div>
+        <h4 style="margin-top:20px;">Riwayat Pembayaran (localStorage)</h4>
+        <ul class="history-list" id="paymentHistory"></ul>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <div class="bottom-nav">
+        <div class="nav-item"><i class="fas fa-user"></i><span>Agent</span></div>
+        <div class="nav-item"><i class="fas fa-chart-pie"></i><span>Admin</span></div>
+        <div class="nav-item fab"><i class="fas fa-plus"></i></div>
+        <div class="nav-item"><i class="fas fa-file-alt"></i><span>Form</span></div>
+        <div class="nav-item"><i class="fas fa-globe"></i><span>Website</span></div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- DATA SIMULASI dari sheet (Report Weekly) ----------
+            // Mengikuti struktur sheet: Agent, WA, Week, AdminFee, Paid, Status, (Order = Fee*10)
+            const rawSheetData = [
+                { agent: "Alya Kirana", wa: "628123456701", week: "W12", fee: 250000, paid: 250000, status: "Lunas" },
+                { agent: "Bima Sakti", wa: "628123456702", week: "W12", fee: 187500, paid: 100000, status: "Sebagian" },
+                { agent: "Citra Ayu", wa: "628123456703", week: "W12", fee: 302000, paid: 0, status: "Belum Bayar" },
+                { agent: "Dwiki R", wa: "628123456704", week: "W12", fee: 95000, paid: 95000, status: "Lunas" },
+                { agent: "Eka Putri", wa: "628123456705", week: "W12", fee: 420000, paid: 200000, status: "Sebagian" },
+                { agent: "Fahri H", wa: "628123456706", week: "W12", fee: 150000, paid: 0, status: "Belum Bayar" },
+                { agent: "Gita S", wa: "628123456707", week: "W12", fee: 278000, paid: 278000, status: "Lunas" },
+                { agent: "Rizki A", wa: "628123456708", week: "W11", fee: 310000, paid: 310000, status: "Lunas" }, // week lain
+                { agent: "Maya S", wa: "628123456709", week: "W11", fee: 195000, paid: 100000, status: "Sebagian" },
+                { agent: "Indra L", wa: "628123456710", week: "W10", fee: 550000, paid: 550000, status: "Lunas" },
+            ];
+            // tambahkan beberapa data untuk 5 minggu terakhir (chart)
+            const chartWeeks = ['W8','W9','W10','W11','W12'];
+            const chartOrders = [82, 97, 105, 120, 142];  // order = fee*10 / 1000? kita tampilkan di chart sbg jumlah order (fee/1000) dan nominal (fee)
+            const chartNominals = [8200000, 9700000, 10500000, 12000000, 14200000];
+
+            // state
+            let currentWeek = "W12";
+            let agentsData = [...rawSheetData];
+            let paymentHistory = JSON.parse(localStorage.getItem('paymentHistory') || '[]');
+
+            // helper
+            function formatRupiah(angka) {
+                return 'Rp' + angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
+            // initialize dropdowns
+            function populateWeeks(selectId, selectedWeek = null) {
+                const weeks = [...new Set(agentsData.map(d => d.week))].sort();
+                const select = document.getElementById(selectId);
+                select.innerHTML = weeks.map(w => `<option value="${w}" ${w === (selectedWeek || currentWeek) ? 'selected' : ''}>${w}</option>`).join('');
+            }
+
+            // update semua UI berdasarkan currentWeek
+            function refreshDashboard() {
+                // filter data minggu ini
+                const weekData = agentsData.filter(d => d.week === currentWeek);
+                // summary
+                const totalAgent = weekData.length;
+                const totalFee = weekData.reduce((acc, d) => acc + d.fee, 0);
+                const totalOrder = totalFee * 10;   // sesuai spek: Admin Fee × 10
+                const topAgent = weekData.sort((a,b) => b.fee - a.fee)[0]?.agent || '-';
+                document.getElementById('totalAgent').innerText = totalAgent;
+                document.getElementById('totalFee').innerText = formatRupiah(totalFee);
+                document.getElementById('totalOrder').innerText = totalOrder.toLocaleString();
+                document.getElementById('topAgent').innerText = topAgent;
+
+                // Agent Cards (urut fee tertinggi)
+                const sorted = [...weekData].sort((a,b) => b.fee - a.fee);
+                const grid = document.getElementById('agentGrid');
+                grid.innerHTML = sorted.map((ag, idx) => {
+                    const orderVal = ag.fee * 10;
+                    let statusClass = 'belum', statusLabel = 'Belum Bayar';
+                    if (ag.status === 'Lunas') { statusClass = 'lunas'; statusLabel = 'Lunas'; }
+                    else if (ag.status === 'Sebagian') { statusClass = 'sebagian'; statusLabel = 'Sebagian'; }
+                    const waDisabled = !ag.wa ? 'disabled' : '';
+                    return `<div class="agent-card">
+                        <span class="rank">${idx+1}</span>
+                        <div class="agent-name">${ag.agent}</div>
+                        <div class="agent-fee">${formatRupiah(ag.fee)}</div>
+                        <div class="agent-order">🧾 Order: ${orderVal.toLocaleString()}</div>
+                        <div class="payment-status"><span class="status-dot ${statusClass}"></span> ${statusLabel}</div>
+                        <button class="ctwa-btn" ${waDisabled} data-wa="${ag.wa || ''}" data-agent="${ag.agent}"><i class="fab fa-whatsapp"></i> CTWA</button>
+                    </div>`;
+                }).join('');
+
+                // attach event ke tombol CTWA
+                document.querySelectorAll('.ctwa-btn:not([disabled])').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const wa = btn.dataset.wa;
+                        if (wa) window.open(`https://wa.me/${wa}`, '_blank');
+                    });
+                });
+
+                // WHATSAPP panel dropdown refresh
+                populateWeeks('waWeekSelect', currentWeek);
+                const agentSelect = document.getElementById('waAgentSelect');
+                agentSelect.innerHTML = weekData.map(a => `<option value="${a.agent}" data-wa="${a.wa}" data-fee="${a.fee}" data-paid="${a.paid}" data-status="${a.status}">${a.agent}</option>`).join('');
+                updateWaInfoCard();
+
+                // PAYMENT section dropdowns
+                populateWeeks('payWeek', currentWeek);
+                const payAgentSelect = document.getElementById('payAgent');
+                payAgentSelect.innerHTML = weekData.map(a => `<option value="${a.agent}" data-fee="${a.fee}" data-paid="${a.paid}" data-status="${a.status}">${a.agent}</option>`).join('');
+                updatePayAdminField();
+
+                // Chart update (dummy dataset line)
+                if (window.myChart) window.myChart.destroy();
+                const ctx = document.getElementById('weeklyChart').getContext('2d');
+                window.myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartWeeks,
+                        datasets: [
+                            { label: 'Jumlah Order', data: chartOrders, borderColor: '#1F4F59', backgroundColor: 'transparent', tension: 0.2, yAxisID: 'y' },
+                            { label: 'Nominal (Rp juta)', data: chartNominals.map(n=>n/1e6), borderColor: '#F4A64D', backgroundColor: 'transparent', tension: 0.2, yAxisID: 'y1' }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+
+                renderPaymentHistory();
+            }
+
+            function updateWaInfoCard() {
+                const agentSel = document.getElementById('waAgentSelect');
+                const weekSel = document.getElementById('waWeekSelect');
+                if (!agentSel.value) return;
+                const opt = agentSel.selectedOptions[0];
+                const week = weekSel.value;
+                const agentName = opt.value;
+                const wa = opt.dataset.wa || '-';
+                const fee = parseInt(opt.dataset.fee) || 0;
+                const paid = parseInt(opt.dataset.paid) || 0;
+                const status = opt.dataset.status || 'Belum Bayar';
+                const sisa = fee - paid;
+                document.getElementById('waName').innerText = agentName;
+                document.getElementById('waPhone').innerText = wa;
+                document.getElementById('waFee').innerText = formatRupiah(fee);
+                document.getElementById('waOrder').innerText = (fee*10).toLocaleString();
+                document.getElementById('waStatus').innerText = status;
+                document.getElementById('waSisa').innerText = formatRupiah(sisa);
+            }
+
+            function updatePayAdminField() {
+                const opt = document.getElementById('payAgent')?.selectedOptions[0];
+                if (opt) {
+                    document.getElementById('payTotalAdmin').value = opt.dataset.fee || 0;
+                }
+            }
+
+            // payment record
+            function recordPayment() {
+                const agent = document.getElementById('payAgent').value;
+                const week = document.getElementById('payWeek').value;
+                const totalAdmin = parseInt(document.getElementById('payTotalAdmin').value);
+                const dibayar = parseInt(document.getElementById('payAmount').value) || 0;
+
+                const record = { agent, week, totalAdmin, dibayar, timestamp: new Date().toISOString() };
+                paymentHistory.push(record);
+                localStorage.setItem('paymentHistory', JSON.stringify(paymentHistory));
+
+                // update status di agentsData (sederhana)
+                const idx = agentsData.findIndex(d => d.agent === agent && d.week === week);
+                if (idx !== -1) {
+                    agentsData[idx].paid = Math.min(totalAdmin, dibayar);
+                    agentsData[idx].status = agentsData[idx].paid === 0 ? 'Belum Bayar' : (agentsData[idx].paid >= totalAdmin ? 'Lunas' : 'Sebagian');
+                }
+                refreshDashboard(); // re-render
+            }
+
+            function renderPaymentHistory() {
+                const ul = document.getElementById('paymentHistory');
+                ul.innerHTML = paymentHistory.slice(-5).reverse().map(r => `<li>${r.agent} (${r.week}) bayar ${formatRupiah(r.dibayar)} <small>${new Date(r.timestamp).toLocaleDateString()}</small></li>`).join('');
+            }
+
+            // export CSV
+            function exportCSV() {
+                const weekData = agentsData.filter(d => d.week === currentWeek);
+                const rows = weekData.map(d => `${d.agent},${d.wa},${d.week},${d.fee},${d.paid},${d.status},${d.fee*10}`);
+                const csv = 'Agent,WA,Week,AdminFee,Paid,Status,TotalOrder\n' + rows.join('\n');
+                const blob = new Blob([csv], {type: 'text/csv'});
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `agent_${currentWeek}.csv`; a.click();
+            }
+
+            // event listeners
+            document.getElementById('weekSelect').innerHTML = `<option>W12</option><option>W11</option><option>W10</option>`; // placeholder
+            populateWeeks('weekSelect', currentWeek);
+            document.getElementById('weekSelect').addEventListener('change', (e) => { currentWeek = e.target.value; refreshDashboard(); });
+            document.getElementById('prevWeek').addEventListener('click', ()=> { /* sederhana ganti manual */ });
+            document.getElementById('nextWeek').addEventListener('click', ()=> {});
+            document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
+            document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+            document.getElementById('waAgentSelect').addEventListener('change', updateWaInfoCard);
+            document.getElementById('waWeekSelect').addEventListener('change', () => {
+                const week = document.getElementById('waWeekSelect').value;
+                const filtered = agentsData.filter(d => d.week === week);
+                const agentSel = document.getElementById('waAgentSelect');
+                agentSel.innerHTML = filtered.map(a => `<option value="${a.agent}" data-wa="${a.wa}" data-fee="${a.fee}" data-paid="${a.paid}" data-status="${a.status}">${a.agent}</option>`).join('');
+                updateWaInfoCard();
+            });
+
+            // Tombol Kirim Pengingat sudah dihapus, hanya hubungi
+            document.getElementById('waContact').addEventListener('click', ()=> {
+                const wa = document.getElementById('waPhone').innerText;
+                if (wa && wa !== '-') window.open(`https://wa.me/${wa}`, '_blank'); else alert('Nomor tidak tersedia');
+            });
+
+            document.getElementById('payAgent').addEventListener('change', updatePayAdminField);
+            document.getElementById('recordPayment').addEventListener('click', recordPayment);
+
+            // init
+            refreshDashboard();
+        })();
+    </script>
+</body>
+</html>
